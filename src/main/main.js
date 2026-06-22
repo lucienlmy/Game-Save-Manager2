@@ -18,7 +18,7 @@ const {
     moveFilesWithProgress, getCurrentVersion, getLatestVersion, updateApp
 } = require('./global');
 const { getGameData, initializeGameData, detectGamePaths, getAllUserIds } = require('./gameData');
-const { getGameDataFromDB, getAllGameDataFromDB, backupGame, updateDatabase } = require('./backup');
+const { getGameDataFromDB, getAllGameDataFromDB, getGameTitlesByIds, backupGame, updateDatabase } = require('./backup');
 const { getGameDataForRestore, restoreGame } = require("./restore");
 const { startAutoBackup, stopAutoBackup, getAutoBackupState, restoreAutoBackups, stopAllAutoBackups } = require('./autoBackup');
 
@@ -320,6 +320,13 @@ ipcMain.handle('fetch-restore-table-data', async (event, wikiId = null) => {
 
 ipcMain.handle('restore-game', async (event, gameObj, userActionForAll) => {
     return await restoreGame(gameObj, userActionForAll);
+});
+
+// Look up game display names by wiki id (needed for hidden games that may have
+// no backups / be uninstalled). Backup size and date come from the existing
+// 'fetch-restore-table-data' handler instead.
+ipcMain.handle('get-game-titles', async (event, wikiIds) => {
+    return await getGameTitlesByIds(wikiIds);
 });
 
 ipcMain.handle('confirm-delete-backup', async (event, wikiId, backupDate) => {

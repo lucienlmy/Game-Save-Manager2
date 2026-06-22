@@ -21,7 +21,7 @@ let aboutWin;
 let settings;
 let writeQueue = Promise.resolve();
 
-const appVersion = "2.2.0-beta.3";
+const appVersion = "2.2.0";
 let status = {
     backuping: false,
     scanning_full: false,
@@ -84,6 +84,12 @@ const initializeMenu = () => {
                     label: i18next.t("main.scan_full"),
                     click() {
                         win.webContents.send("scan-full");
+                    },
+                },
+                {
+                    label: i18next.t("main.manage_hidden_games"),
+                    click() {
+                        win.webContents.send("open-hidden-games-modal");
                     },
                 },
                 {
@@ -320,17 +326,14 @@ function showNotification(type, title, body, latest_version = 0) {
 }
 
 function updateApp(latest_version) {
-    const updaterPath = './Updater.exe';
+    const updaterPath = path.join(path.dirname(app.getPath('exe')), 'Updater.exe');
     const s3Path = `GSM/Game Save Manager Setup ${latest_version}.exe`;
-    const args = ['--pid', process.pid, '--s3-path', s3Path, '--theme', settings['theme'], '--language', settings['language']];
 
     try {
-        const updaterProcess = spawn(updaterPath, args, {
-            detached: true,
-            stdio: 'ignore',
-        });
-        updaterProcess.unref();
-
+        const argsLine = `--pid ${process.pid} --s3-path "${s3Path}" --theme ${settings.theme} --language ${settings.language}`;
+        spawn('powershell.exe', ['-NoProfile', '-Command',
+            `Start-Process -FilePath '${updaterPath}' -ArgumentList '${argsLine}' -Verb RunAs`
+        ], { stdio: 'ignore' });
     } catch (error) {
         console.error('An error occurred while trying to spawn the updater process:', error);
     }
@@ -889,6 +892,7 @@ const loadSettings = () => {
         saveUninstalledGames: true,
         gameInstalls: 'uninitialized',
         pinnedGames: [],
+        hiddenGames: [],
         uninstalledGames: [],
         autoBackupGames: {}
     };

@@ -91,7 +91,11 @@
         "import": "Import",
         "gsmr-file-type": "GSMR Backup File",
         "scan_full": "Database Full Scan",
-        "view_account_ids": "View Account IDs"
+        "view_account_ids": "View Account IDs",
+        "hide": "Hide",
+        "unhide": "Unhide",
+        "manage_hidden_games": "Manage Hidden Games",
+        "no_hidden_games": "No hidden games"
     },
     "summary": {
         "done": "Done",
@@ -224,6 +228,7 @@
         "delete_failed": "Failed to delete data",
         "local_save_deleted": "Local save data deleted successfully",
         "wait_for_backup_loading": "Please wait for the backup tab to finish loading",
-        "auto_backup_game_not_found": "Game data not found for auto backup"
+        "auto_backup_game_not_found": "Game data not found for auto backup",
+        "game_hidden": "Game hidden, manage hidden games from Options"
     }
 }

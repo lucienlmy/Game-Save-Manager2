@@ -91,7 +91,11 @@
         "import": "匯入",
         "gsmr-file-type": "GSMR 備份檔案",
         "scan_full": "完整資料庫掃描",
-        "view_account_ids": "查看帳戶 ID"
+        "view_account_ids": "查看帳戶 ID",
+        "hide": "隱藏",
+        "unhide": "取消隱藏",
+        "manage_hidden_games": "管理隱藏的遊戲",
+        "no_hidden_games": "暫無隱藏的遊戲"
     },
     "summary": {
         "done": "完成",
@@ -224,6 +228,7 @@
         "delete_failed": "刪除資料失敗",
         "local_save_deleted": "已成功刪除本機存檔",
         "wait_for_backup_loading": "請等待備份列表載入完成",
-        "auto_backup_game_not_found": "未找到自動備份的遊戲資料"
+        "auto_backup_game_not_found": "未找到自動備份的遊戲資料",
+        "game_hidden": "遊戲已隱藏，可在「選項」中管理隱藏的遊戲"
     }
 }

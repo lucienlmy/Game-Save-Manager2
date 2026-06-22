@@ -336,6 +336,49 @@ async function getAllGameDataFromDB() {
     }
 }
 
+// Look up display names (title and zh_CN) for a list of wiki page ids.
+// Used by the "Manage Hidden Games" modal, which only needs names, not save paths.
+async function getGameTitlesByIds(wikiIds) {
+    const results = [];
+    if (!wikiIds || wikiIds.length === 0) {
+        return results;
+    }
+
+    const dbPath = path.join(app.getPath("userData"), "GSM Database", "database.db");
+    if (!fs.existsSync(dbPath)) {
+        return results;
+    }
+
+    const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY);
+    try {
+        const placeholders = wikiIds.map(() => '?').join(',');
+        const rows = await new Promise((resolve, reject) => {
+            db.all(
+                `SELECT wiki_page_id, title, zh_CN FROM games WHERE wiki_page_id IN (${placeholders})`,
+                wikiIds.map(String),
+                (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows);
+                }
+            );
+        });
+
+        for (const row of rows) {
+            results.push({
+                wiki_page_id: row.wiki_page_id.toString(),
+                title: row.title,
+                zh_CN: row.zh_CN
+            });
+        }
+    } catch (error) {
+        console.error(`Error fetching game titles by ids: ${error.message}`);
+    } finally {
+        db.close();
+    }
+
+    return results;
+}
+
 async function processCustomEntries(customJsonPath, gameInstallPaths, targetWikiId = null) {
     const customGames = [];
     const customGameErrors = [];
@@ -833,6 +876,7 @@ async function updateDatabase() {
 module.exports = {
     getGameDataFromDB,
     getAllGameDataFromDB,
+    getGameTitlesByIds,
     backupGame,
     updateDatabase
 };

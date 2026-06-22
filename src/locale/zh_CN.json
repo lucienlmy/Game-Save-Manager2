@@ -91,7 +91,11 @@
         "import": "导入",
         "gsmr-file-type": "GSMR 备份文件",
         "scan_full": "完整数据库扫描",
-        "view_account_ids": "查看账户 ID"
+        "view_account_ids": "查看账户 ID",
+        "hide": "隐藏",
+        "unhide": "取消隐藏",
+        "manage_hidden_games": "管理隐藏的游戏",
+        "no_hidden_games": "暂无隐藏的游戏"
     },
     "summary": {
         "done": "完成",
@@ -224,6 +228,7 @@
         "delete_failed": "删除数据失败",
         "local_save_deleted": "已成功删除本地存档",
         "wait_for_backup_loading": "请等待备份列表加载完成",
-        "auto_backup_game_not_found": "未找到自动备份的游戏数据"
+        "auto_backup_game_not_found": "未找到自动备份的游戏数据",
+        "game_hidden": "游戏已隐藏，可在“选项”中管理隐藏的游戏"
     }
 }

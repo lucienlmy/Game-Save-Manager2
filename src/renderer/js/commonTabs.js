@@ -1,6 +1,6 @@
 import { showAlert, updateTranslations } from './utility.js';
 import { checkAndWarnUnsavedChanges } from './customTab.js';
-import { showManageBackupsModal, showAutoBackupModal } from './modalDisplay.js';
+import { showManageBackupsModal, showAutoBackupModal, showHiddenGamesModal, showAutoBackupSummary, refreshAutoBackupModalStatus } from './modalDisplay.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     updateTranslations(document);
@@ -14,6 +14,10 @@ window.api.receive('apply-language', () => {
     updateTranslations(document);
     updateSelectedCountAndSize('backup');
     updateSelectedCountAndSize('restore');
+});
+
+window.api.receive('open-hidden-games-modal', () => {
+    showHiddenGamesModal();
 });
 
 // Auto backup IPC receivers
@@ -34,6 +38,7 @@ window.api.receive('auto-backup-stopped', (wikiId) => {
 window.api.receive('auto-backup-performed', async (wikiId) => {
     await addOrUpdateTableRow('backup', wikiId);
     await addOrUpdateTableRow('restore', wikiId);
+    await refreshAutoBackupModalStatus(wikiId);
 });
 
 export const spinner = `
@@ -180,11 +185,25 @@ function setupSearchFilter(tabName) {
     searchInput.addEventListener('input', function () {
         const filter = searchInput.value.toLowerCase();
         const rows = tableBody.querySelectorAll('tr');
+        const dataMap = tabName === 'backup' ? window.backupTableDataMap : window.restoreTableDataMap;
 
         rows.forEach(row => {
-            const gameNameCell = row.querySelector('th[scope="row"]');
-            const gameName = gameNameCell ? gameNameCell.textContent.toLowerCase() : '';
-            row.style.display = gameName.includes(filter) ? '' : 'none';
+            // Match against both English and Chinese names, regardless of the
+            // displayed language. Fall back to the visible cell text if the
+            // game data isn't available in the data map.
+            const gameData = dataMap && dataMap.get(row.getAttribute('data-wiki-id'));
+            const searchTargets = [];
+            if (gameData) {
+                if (gameData.title) searchTargets.push(gameData.title);
+                if (gameData.zh_CN) searchTargets.push(gameData.zh_CN);
+            }
+            if (searchTargets.length === 0) {
+                const gameNameCell = row.querySelector('th[scope="row"]');
+                if (gameNameCell) searchTargets.push(gameNameCell.textContent);
+            }
+
+            const matches = searchTargets.some(name => name.toLowerCase().includes(filter));
+            row.style.display = matches ? '' : 'none';
         });
     });
 }
@@ -318,6 +337,11 @@ export async function addOrUpdateTableRow(tabName, wikiId) {
     } else {
         // Create and append new row
         const settings = await window.api.invoke('get-settings');
+
+        // Don't re-add a row for a hidden game (e.g. triggered by auto backup)
+        const hiddenGamesWikiIds = settings.hiddenGames || [];
+        if (hiddenGamesWikiIds.includes(wikiId.toString())) return;
+
         let gameTitle = gameData.title;
         if (gameData.zh_CN && settings.language === 'zh_CN') {
             gameTitle = gameData.zh_CN;
@@ -404,6 +428,14 @@ export function removeTableRow(tabName, wikiId) {
     }
     const dataMap = tabName === 'backup' ? window.backupTableDataMap : window.restoreTableDataMap;
     dataMap.delete(wikiId);
+
+    // Re-evaluate the "select all" checkbox now that a row is gone
+    const selectAllCheckbox = document.getElementById(`${tabName}-checkbox-all-search`);
+    const tableBody = document.querySelector(`#${tabName} tbody`);
+    if (selectAllCheckbox && tableBody) {
+        updateSelectAllCheckbox(selectAllCheckbox, tableBody);
+    }
+
     updateSelectedCountAndSize(tabName);
 }
 
@@ -416,7 +448,8 @@ async function createDropdownMenu(wikiPageId, tabName) {
         action = 'unpin';
         i18nKey = 'main.unpin';
     }
-    const wikiUrl = !wikiPageId.includes('-') ? `https://www.pcgamingwiki.com/wiki/index.php?curid=${wikiPageId}` : "none";
+    const isCustomGame = wikiPageId.includes('-');
+    const wikiUrl = !isCustomGame ? `https://www.pcgamingwiki.com/wiki/index.php?curid=${wikiPageId}` : "none";
 
     const dropdownMenu = document.createElement('div');
     dropdownMenu.className = 'bg-white rounded-lg shadow-sm w-48 dark:bg-gray-700 absolute hidden animate-fadeInShift';
@@ -429,12 +462,6 @@ async function createDropdownMenu(wikiPageId, tabName) {
                 </a>
             </li>
             <li>
-                <a href="#" data-action="open-wiki" data-url="${wikiUrl}" data-i18n="main.view_wiki"
-                    class="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white">
-                    <span class="text-content">View on PCGamingWiki</span>
-                </a>
-            </li>
-            <li>
                 <a href="#" data-action="manage-backups" data-id="${wikiPageId}" data-i18n="main.manage_backups"
                     class="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white">
                     <span class="text-content">Manage Backups</span>
@@ -444,6 +471,18 @@ async function createDropdownMenu(wikiPageId, tabName) {
                 <a href="#" data-action="auto-backup" data-id="${wikiPageId}" data-i18n="main.auto_backup"
                     class="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white">
                     <span class="text-content"></span>
+                </a>
+            </li>` : ''}
+            <li>
+                <a href="#" data-action="open-wiki" data-url="${wikiUrl}" data-i18n="main.view_wiki"
+                    class="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white">
+                    <span class="text-content">View on PCGamingWiki</span>
+                </a>
+            </li>
+            ${!isCustomGame ? `<li>
+                <a href="#" data-action="hide" data-id="${wikiPageId}" data-i18n="main.hide"
+                    class="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white">
+                    <span class="text-content">Hide</span>
                 </a>
             </li>` : ''}
         </ul>
@@ -537,6 +576,33 @@ function setDropDownAction() {
             const wikiId = actionElement.dataset.id;
             if (wikiId) {
                 showAutoBackupModal(wikiId);
+            }
+            removeDropDown();
+            return;
+        }
+        if (actionElement && actionElement.dataset.action === 'hide') {
+            const wikiId = actionElement.dataset.id;
+            if (wikiId) {
+                window.api.invoke('get-settings').then(async (settings) => {
+                    if (settings) {
+                        let hidden_games_wiki_ids = new Set(settings['hiddenGames']);
+                        hidden_games_wiki_ids.add(wikiId);
+                        window.api.send('save-settings', 'hiddenGames', Array.from(hidden_games_wiki_ids));
+                        removeTableRow('backup', wikiId);
+                        removeTableRow('restore', wikiId);
+                        showAlert('success', await window.i18n.translate('alert.game_hidden'));
+
+                        // A hidden game can't be managed in the list, so terminate any
+                        // active auto backup for it. stop-auto-backup returns the logs
+                        // array if it was running, or null if it wasn't. When it was
+                        // running, show the normal disable summary (same as the auto
+                        // backup modal), which already conveys that it was stopped.
+                        const autoBackupLogs = await window.api.invoke('stop-auto-backup', wikiId);
+                        if (autoBackupLogs) {
+                            await showAutoBackupSummary(autoBackupLogs);
+                        }
+                    }
+                });
             }
             removeDropDown();
             return;
@@ -706,6 +772,12 @@ export function setupSelectAllCheckbox(tabName, selectAllCheckbox) {
 // Function to update the "Select All" checkbox state
 function updateSelectAllCheckbox(selectAllCheckbox, tableContainer) {
     const rowCheckboxes = tableContainer.querySelectorAll('.row-checkbox');
+    if (rowCheckboxes.length === 0) {
+        // No rows: an empty table must not appear "all selected"
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+        return;
+    }
     const allChecked = Array.from(rowCheckboxes).every(checkbox => checkbox.checked);
     const anyChecked = Array.from(rowCheckboxes).some(checkbox => checkbox.checked);
     selectAllCheckbox.checked = allChecked;

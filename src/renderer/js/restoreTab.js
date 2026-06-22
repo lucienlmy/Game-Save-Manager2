@@ -38,13 +38,16 @@ async function populateRestoreTable(data) {
 
     const settings = await window.api.invoke('get-settings');
     const pinnedGamesWikiIds = settings.pinnedGames || [];
+    const hiddenGamesWikiIds = settings.hiddenGames || [];
     const selectedWikiIds = getSelectedWikiIds('restore');
 
     tableBody.innerHTML = '';
     restoreTableDataMap.clear();
 
     const gamesWithTitleToSort = await Promise.all(
-        data.map(async (game) => {
+        data
+            .filter(game => !hiddenGamesWikiIds.includes(game.wiki_page_id.toString()))
+            .map(async (game) => {
             const titleToSort = settings.language === 'zh_CN'
                 ? game.zh_CN || game.title
                 : game.title;
